@@ -27,61 +27,61 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
     @objc public private(set) static var sharedInstance: SwiftFlutterCallkitIncomingPlugin!
     
     private var streamHandlers: WeakArray<EventCallbackHandler> = WeakArray([])
-    
-    import Flutter
 
-    @available(iOS 10.0, *)
-    public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
-        public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-            switch call.method {
-            case "showCallkitIncoming":
-                result(true)
-            case "showMissCallNotification":
-                result(true)
-            case "startCall":
-                result(true)
-            case "endCall":
-                result(true)
-            case "muteCall":
-                result(true)
-            case "isMuted":
-                result(false)
-            case "holdCall":
-                result(true)
-            case "callConnected":
-                result(true)
-            case "activeCalls":
-                result([])
-            case "endAllCalls":
-                result(true)
-            case "getDevicePushTokenVoIP":
-                result("")
-            case "silenceEvents":
-                result(true)
-            case "requestNotificationPermission":
-                result(true)
-            case "requestFullIntentPermission":
-                result(true)
-            case "canUseFullScreenIntent":
-                result(true)
-            case "hideCallkitIncoming":
-                result(true)
-            case "endNativeSubsystemOnly":
-                result(true)
-            case "setAudioRoute":
-                result(true)
-            default:
-                result(FlutterMethodNotImplemented)
-            }
+    public static func register(with registrar: FlutterPluginRegistrar) {
+        let channel = FlutterMethodChannel(name: "flutter_callkit_incoming", binaryMessenger: registrar.messenger())
+        let instance = SwiftFlutterCallkitIncomingPlugin()
+        registrar.addMethodCallDelegate(instance, channel: channel)
+        SwiftFlutterCallkitIncomingPlugin.sharedInstance = instance
+    }
+
+    public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        switch call.method {
+        case "showCallkitIncoming":
+            result(true)
+        case "showMissCallNotification":
+            result(true)
+        case "startCall":
+            result(true)
+        case "endCall":
+            result(true)
+        case "muteCall":
+            result(true)
+        case "isMuted":
+            result(false)
+        case "holdCall":
+            result(true)
+        case "callConnected":
+            result(true)
+        case "activeCalls":
+            result([])
+        case "endAllCalls":
+            result(true)
+        case "getDevicePushTokenVoIP":
+            result("")
+        case "silenceEvents":
+            result(true)
+        case "requestNotificationPermission":
+            result(true)
+        case "requestFullIntentPermission":
+            result(true)
+        case "canUseFullScreenIntent":
+            result(true)
+        case "hideCallkitIncoming":
+            result(true)
+        case "endNativeSubsystemOnly":
+            result(true)
+        case "setAudioRoute":
+            result(true)
+        default:
+            result(FlutterMethodNotImplemented)
         }
     }
     
     private func sendHoldEvent(_ id: String, _ isOnHold: Bool) {
-        self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_TOGGLE_HOLD, [ "id": id, "isOnHold": isOnHold ])
     }
     
     @objc public func sendCallbackEvent(_ data: [String: Any]?) {
-        self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_CALLBACK, data)
     }
     
     
