@@ -325,18 +325,20 @@ class CallkitNotificationManager(
             } else {
                 notificationBuilder?.setContentTitle(caller)
                 val textDecline = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_DECLINE, "")
-                val declineAction: NotificationCompat.Action = NotificationCompat.Action.Builder(
+                val declineText = if (textDecline.isNullOrEmpty()) context.getString(R.string.text_decline) else textDecline
+                val declineAction = NotificationCompat.Action.Builder(
                     R.drawable.ic_decline,
-                    if (textDecline.isNullOrEmpty()) context.getString(R.string.text_decline) else textDecline,
+                    declineText,
                     getDeclinePendingIntent(notificationId, data)
-                ).build()
+                ).setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_CALL_DECLINE).build()
                 notificationBuilder?.addAction(declineAction)
                 val textAccept = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_ACCEPT, "")
-                val acceptAction: NotificationCompat.Action = NotificationCompat.Action.Builder(
+                val acceptText = if (textAccept.isNullOrEmpty()) context.getString(R.string.text_accept) else textAccept
+                val acceptAction = NotificationCompat.Action.Builder(
                     R.drawable.ic_accept,
-                    if (textAccept.isNullOrEmpty()) context.getString(R.string.text_accept) else textAccept,
+                    acceptText,
                     getAcceptPendingIntent(notificationId, data)
-                ).build()
+                ).setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_CALL_ANSWER).build()
                 notificationBuilder?.addAction(acceptAction)
             }
         }
