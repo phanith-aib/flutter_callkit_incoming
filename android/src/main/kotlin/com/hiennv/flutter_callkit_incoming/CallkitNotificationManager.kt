@@ -17,6 +17,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.TextUtils
 import android.text.format.DateFormat
 import android.view.View
 import android.widget.RemoteViews
@@ -325,20 +326,18 @@ class CallkitNotificationManager(
             } else {
                 notificationBuilder?.setContentTitle(caller)
                 val textDecline = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_DECLINE, "")
-                val declineText = if (textDecline.isNullOrEmpty()) context.getString(R.string.text_decline) else textDecline
-                val declineAction = NotificationCompat.Action.Builder(
+                val declineAction: NotificationCompat.Action = NotificationCompat.Action.Builder(
                     R.drawable.ic_decline,
-                    declineText,
+                    if (textDecline.isNullOrEmpty()) context.getString(R.string.text_decline) else textDecline,
                     getDeclinePendingIntent(notificationId, data)
-                ).setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_CALL_DECLINE).build()
+                ).build()
                 notificationBuilder?.addAction(declineAction)
                 val textAccept = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_ACCEPT, "")
-                val acceptText = if (textAccept.isNullOrEmpty()) context.getString(R.string.text_accept) else textAccept
-                val acceptAction = NotificationCompat.Action.Builder(
+                val acceptAction: NotificationCompat.Action = NotificationCompat.Action.Builder(
                     R.drawable.ic_accept,
-                    acceptText,
+                    if (textAccept.isNullOrEmpty()) context.getString(R.string.text_accept) else textAccept,
                     getAcceptPendingIntent(notificationId, data)
-                ).setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_CALL_ANSWER).build()
+                ).build()
                 notificationBuilder?.addAction(acceptAction)
             }
         }
@@ -363,16 +362,18 @@ class CallkitNotificationManager(
         remoteViews.setOnClickPendingIntent(
             R.id.llDecline, getDeclinePendingIntent(notificationId, data)
         )
+        val textDecline = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_DECLINE, "")
         remoteViews.setTextViewText(
             R.id.tvDecline,
-            data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_DECLINE, context.getString(R.string.text_decline))
+            if (textDecline.isNullOrEmpty()) context.getString(R.string.text_decline) else textDecline
         )
         remoteViews.setOnClickPendingIntent(
             R.id.llAccept, getAcceptPendingIntent(notificationId, data)
         )
+        val textAccept = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_ACCEPT, "")
         remoteViews.setTextViewText(
             R.id.tvAccept,
-            data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_ACCEPT, context.getString(R.string.text_accept))
+            if (textAccept.isNullOrEmpty()) context.getString(R.string.text_accept) else textAccept
         )
         var avatarUrl = data.getString(CallkitConstants.EXTRA_CALLKIT_AVATAR, "")
         if (!avatarUrl.isNullOrEmpty()) {
@@ -478,9 +479,11 @@ class CallkitNotificationManager(
             notificationMissingViews?.setViewVisibility(
                 R.id.llCallback, if (isShowCallback) View.VISIBLE else View.GONE
             )
+            val textCallback =
+                data.getString(CallkitConstants.EXTRA_CALLKIT_MISSED_CALL_CALLBACK_TEXT, "")
             notificationMissingViews?.setTextViewText(
                 R.id.tvCallback,
-                data.getString(CallkitConstants.EXTRA_CALLKIT_MISSED_CALL_CALLBACK_TEXT, context.getString(R.string.text_call_back))
+                if (textCallback.isNullOrEmpty()) context.getString(R.string.text_call_back) else textCallback
             )
 
             var avatarUrl = data.getString(CallkitConstants.EXTRA_CALLKIT_AVATAR, "")
@@ -709,9 +712,11 @@ class CallkitNotificationManager(
                 )
 
 
+                val textHangup =
+                    data.getString(CallkitConstants.EXTRA_CALLKIT_CALLING_HANG_UP_TEXT, "")
                 notificationOngoingViews?.setTextViewText(
                     R.id.tvHangUp,
-                    data.getString(CallkitConstants.EXTRA_CALLKIT_CALLING_HANG_UP_TEXT, context.getString(R.string.text_hang_up))
+                    if (textHangup.isNullOrEmpty()) context.getString(R.string.text_hang_up) else textHangup
                 )
 
                 var avatarUrl = data.getString(CallkitConstants.EXTRA_CALLKIT_AVATAR, "")
