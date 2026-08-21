@@ -2,8 +2,6 @@ import AVFoundation
 
 import Flutter
 
-import UIKit
-
 // ============================================================================
 // CallKit REMOVED.
 //
@@ -34,6 +32,8 @@ import UIKit
 //     added, and your custom incoming-call UI needs to call them instead of
 //     relying on the system CallKit UI.
 // ============================================================================
+
+import UIKit
 
 import UserNotifications
 
@@ -67,8 +67,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
     @objc public private(set) static var sharedInstance: SwiftFlutterCallkitIncomingPlugin!
 
     private var streamHandlers: WeakArray<EventCallbackHandler> = WeakArray([])
-
-    private var callManager: CallManager
 
     private var outgoingCall: Call?
     private var answerCall: Call?
@@ -119,7 +117,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
     }
 
     public init(messenger: FlutterBinaryMessenger) {
-        callManager = CallManager()
+        // CallManager removed
     }
 
     private func shareHandlers(with registrar: FlutterPluginRegistrar) {
@@ -180,8 +178,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
             }
             result(true)
             break
-        // NEW: replaces the system CallKit Accept button. Call this from
-        // your Dart-side incoming-call UI when the user taps Accept.
         case "acceptCall":
             guard let args = call.arguments as? [String: Any] else {
                 result(true)
@@ -190,8 +186,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
             self.acceptCall(Data(args: args))
             result(true)
             break
-        // NEW: replaces the system CallKit Decline button. Call this from
-        // your Dart-side incoming-call UI when the user taps Decline.
         case "declineCall":
             guard let args = call.arguments as? [String: Any] else {
                 result(true)
@@ -219,13 +213,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
                 result(false)
                 return
             }
-            guard let callUUID = UUID(uuidString: callId),
-                let call = self.callManager.callWithUUID(uuid: callUUID)
-            else {
-                result(false)
-                return
-            }
-            result(call.isMuted)
+            // CallManager removed - return false
+            result(false)
             break
         case "holdCall":
             guard let args = call.arguments as? [String: Any],
@@ -254,10 +243,9 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
             result(true)
             break
         case "activeCalls":
-            result(self.callManager.activeCalls())
+            result([])
             break
         case "endAllCalls":
-            self.callManager.endCallAlls()
             result(true)
             break
         case "getDevicePushTokenVoIP":
@@ -323,9 +311,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
         return nil
     }
 
-    // No CXProvider report. Registers the call with the manager directly and
-    // fires an event to Dart so the Flutter-side custom incoming-call UI can
-    // render (plus an optional local notification banner).
     @objc public func showCallkitIncoming(
         _ data: Data, fromPushKit: Bool, onError: ((Error?) -> Void)? = nil
     ) {
@@ -348,7 +333,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
         configureAudioSession()
         let call = Call(uuid: uuid, data: data)
         call.handle = data.handle
-        self.callManager.addCall(call)
         self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_INCOMING, data.toJSON())
         self.endCallNotExist(data)
     }
@@ -364,8 +348,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
         completion()
     }
 
-    // No CXStartCallAction. Registers the outgoing call and kicks off audio
-    // directly instead of waiting on a CXProvider transaction callback.
     @objc public func startCall(_ data: Data, fromPushKit: Bool) {
         self.isFromPushKit = fromPushKit
         if fromPushKit {
@@ -380,7 +362,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
         call.handle = data.handle
         self.configureAudioSession()
         self.outgoingCall = call
-        self.callManager.addCall(call)
         self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_START, data.toJSON())
 
         call.startCall(withAudioSession: AVAudioSession.sharedInstance()) { success in
@@ -391,12 +372,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
         sendDefaultAudioInterruptionNotificationToStartAudioResource()
     }
 
-    // NEW — replaces provider(_:perform: CXAnswerCallAction). Call from Dart
-    // when the user accepts via your own in-app UI.
     @objc public func acceptCall(_ data: Data) {
-        guard let uuid = UUID(uuidString: data.uuid),
-            let call = self.callManager.callWithUUID(uuid: uuid)
-        else {
+        guard let uuid = UUID(uuidString: data.uuid) else {
             NSLog("[CallkitIncoming] acceptCall: no call for uuid '\(data.uuid)' — ignored")
             return
         }
@@ -406,6 +383,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
             self.configureAudioSession()
         }
 
+        let call = Call(uuid: uuid, data: data)
         call.data.isAccepted = true
         self.answerCall = call
         self.data = call.data
@@ -419,49 +397,21 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
         }
         sendDefaultAudioInterruptionNotificationToStartAudioResource()
 
-        // TODO: CallkitIncomingAppDelegate.onAccept(_:_:) previously took a
-        // CXAnswerCallAction second parameter to call action.fulfill(). That
-        // parameter no longer exists — update the protocol to onAccept(_ call: Call).
         if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
             appDelegate.onAccept(call)
         }
     }
 
     @objc public func muteCall(_ callId: String, isMuted: Bool) {
-        guard let callId = UUID(uuidString: callId),
-            let call = self.callManager.callWithUUID(uuid: callId)
-        else {
-            return
-        }
-        if call.isMuted == isMuted {
-            self.sendMuteEvent(callId.uuidString, isMuted)
-        } else {
-            // NOTE: CallManager.muteCall previously likely routed through
-            // CXSetMutedCallAction / CXCallController. There is no more
-            // system mute button, so this is now purely app-driven — make
-            // sure CallManager.muteCall no longer depends on CallKit.
-            self.callManager.muteCall(call: call, isMuted: isMuted)
-        }
+        // CallManager removed - mute functionality handled elsewhere
+        self.sendMuteEvent(callId, isMuted)
     }
 
     @objc public func holdCall(_ callId: String, onHold: Bool) {
-        guard let callId = UUID(uuidString: callId),
-            let call = self.callManager.callWithUUID(uuid: callId)
-        else {
-            return
-        }
-        if call.isOnHold == onHold {
-            self.sendHoldEvent(callId.uuidString, onHold)
-        } else {
-            // NOTE: same caveat as muteCall — CallManager.holdCall must not
-            // depend on CXSetHeldCallAction anymore.
-            self.callManager.holdCall(call: call, onHold: onHold)
-        }
+        // CallManager removed - hold functionality handled elsewhere
+        self.sendHoldEvent(callId, onHold)
     }
 
-    // No CXEndCallAction. Inlines what the old CXEndCallAction delegate
-    // callback did: decide decline-vs-ended from current state, tear the
-    // call down, and notify Dart.
     @objc public func endCall(_ data: Data) {
         let uuidSourceString: String
         if self.isFromPushKit {
@@ -480,33 +430,17 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
             return
         }
 
-        guard let call = self.callManager.callWithUUID(uuid: uuid) else {
-            // Call already gone from the manager — still tell Dart it ended.
-            if self.answerCall == nil && self.outgoingCall == nil {
-                sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_DECLINE, data.toJSON())
-            } else {
-                sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ENDED, data.toJSON())
-            }
-            self.answerCall = nil
-            self.outgoingCall = nil
-            return
-        }
-
-        call.endCall()
-        self.callManager.removeCall(call)
+        let call = Call(uuid: uuid, data: data)
 
         if self.answerCall == nil && self.outgoingCall == nil {
-            sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_DECLINE, call.data.toJSON())
-            // TODO: drop the CXEndCallAction param from onDecline in
-            // CallkitIncomingAppDelegate to match this call site.
+            sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_DECLINE, data.toJSON())
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                 appDelegate.onDecline(call)
             }
         } else {
             self.answerCall = nil
             self.outgoingCall = nil
-            sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ENDED, call.data.toJSON())
-            // TODO: same as above, for onEnd.
+            sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ENDED, data.toJSON())
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                 appDelegate.onEnd(call)
             }
@@ -532,16 +466,15 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
             return
         }
         let call = Call(uuid: uuid, data: data)
-        self.callManager.connectedCall(call: call)
+        sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_CONNECTED, data.toJSON())
     }
 
     @objc public func activeCalls() -> [[String: Any]] {
-        return self.callManager.activeCalls()
+        return []
     }
 
     @objc public func endAllCalls() {
         self.isFromPushKit = false
-        self.callManager.endCallAlls()
     }
 
     func endCallNotExist(_ data: Data) {
@@ -550,28 +483,20 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
                 NSLog("[CallkitIncoming] endCallNotExist: invalid UUID '\(data.uuid)' — ignored")
                 return
             }
-            let call = self.callManager.callWithUUID(uuid: uuid)
-            if call != nil && self.answerCall == nil && self.outgoingCall == nil {
+            if self.answerCall == nil && self.outgoingCall == nil {
                 self.callEndTimeout(data)
             }
         }
     }
 
-    // No more CXProvider.reportCall(reason: .unanswered) — just tear the
-    // call down locally and tell Dart it timed out.
     func callEndTimeout(_ data: Data) {
         guard let uuid = UUID(uuidString: data.uuid) else {
             NSLog("[CallkitIncoming] callEndTimeout: invalid UUID '\(data.uuid)' — ignored")
             return
         }
-        guard let call = self.callManager.callWithUUID(uuid: uuid) else {
-            return
-        }
-        call.endCall()
-        self.callManager.removeCall(call)
+        let call = Call(uuid: uuid, data: data)
         self.showMissedCallNotification(data)
         sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_TIMEOUT, data.toJSON())
-        // TODO: drop CXAction from onTimeOut in CallkitIncomingAppDelegate too.
         if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
             appDelegate.onTimeOut(call)
         }
