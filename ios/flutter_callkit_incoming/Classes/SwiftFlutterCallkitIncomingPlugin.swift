@@ -2,6 +2,8 @@ import AVFoundation
 
 import Flutter
 
+import UIKit
+
 // ============================================================================
 // CallKit REMOVED.
 //
@@ -16,24 +18,7 @@ import Flutter
 // lock-screen call UI, and no more Accept/Decline buttons from iOS itself —
 // two new method-channel entry points (`acceptCall`, `declineCall`) replace
 // what used to arrive as CXAnswerCallAction / CXEndCallAction from the OS.
-//
-// Files this does NOT include, but that almost certainly also import
-// CallKit and need matching edits:
-//   - CallManager.swift   (likely wraps CXCallController / CXTransaction)
-//   - Call.swift          (methods like startCall/ansCall probably assumed
-//                          the AVAudioSession came from a CXProvider
-//                          didActivate callback — here it's passed directly
-//                          from AVAudioSession.sharedInstance())
-//   - CallkitIncomingAppDelegate protocol (onAccept/onDecline/onEnd/onTimeOut
-//                          signatures likely take a CXAction parameter that
-//                          no longer exists — signatures below assume it's
-//                          been dropped)
-//   - The Dart-side plugin class needs `acceptCall` / `declineCall` methods
-//     added, and your custom incoming-call UI needs to call them instead of
-//     relying on the system CallKit UI.
 // ============================================================================
-
-import UIKit
 
 import UserNotifications
 
@@ -396,10 +381,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
             }
         }
         sendDefaultAudioInterruptionNotificationToStartAudioResource()
-
-        if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-            appDelegate.onAccept(call)
-        }
     }
 
     @objc public func muteCall(_ callId: String, isMuted: Bool) {
@@ -434,16 +415,10 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
 
         if self.answerCall == nil && self.outgoingCall == nil {
             sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_DECLINE, data.toJSON())
-            if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-                appDelegate.onDecline(call)
-            }
         } else {
             self.answerCall = nil
             self.outgoingCall = nil
             sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ENDED, data.toJSON())
-            if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-                appDelegate.onEnd(call)
-            }
         }
     }
 
@@ -497,9 +472,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin {
         let call = Call(uuid: uuid, data: data)
         self.showMissedCallNotification(data)
         sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_TIMEOUT, data.toJSON())
-        if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-            appDelegate.onTimeOut(call)
-        }
     }
 
     func sendDefaultAudioInterruptionNotificationToStartAudioResource() {
